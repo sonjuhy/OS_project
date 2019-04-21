@@ -1,6 +1,8 @@
 ﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <conio.h>
+#include <Windows.h>
 #include <math.h>
 
 struct Process {
@@ -14,6 +16,8 @@ struct Process {
 	int TAT;//Turnaroundtime
 	int stat;//0 : wait, 1 : runnung, 2 : finish
 };
+void gotoxy(int x, int y);
+
 void Schedular_fun(Process **proc, int mode);
 
 Process* FileIO_fun(Process **proc);
@@ -31,21 +35,103 @@ int row_count = 0;
 int main()
 {
 	struct Process *proc = 0;//process# , CPU_time, Arrival_time, Priority
-	int row_count = 0, mode =0;
-	
+	int mode = 0, key = 0, row = 3, Read_check = 0, exit = 0;
+
 	proc = (Process*)malloc(sizeof(struct Process));
+
+	printf("Main Menu\n");
+	printf("---------\n");
+	printf("  Read processes from proc.txt\n");
+	printf("  Generate random processes\n");
+	printf("  First come first Serve (FCFS)\n");
+	printf("  Shortest Job First (SJF)\n");
+	printf("  Shortest Remaining time First (SRTF)\n");
+	printf("  Priority\n");
+	printf("  Round Robin (RR)\n");
+	printf("  Exit\n");
+	gotoxy(1, 3);
+	printf("*");
+	while (1) {
+		if (_kbhit()) {
+			key = _getch();
+			if (key == 224 || key == 0 || key == 13) {
+				key = _getch();
+				switch (key) {
+				case 13://enter
+					switch (row - 1) {
+					case 0://Read txt
+						proc = FileIO_fun(&proc);
+						if (row_count == -1 || proc == 0) {
+							printf("Error\n");
+							return -1;
+						}
+						Read_check = 1;
+						break;
+					case 1://Generate
+						break;
+					case 2://FCFS
+						mode = 1;
+						break;
+					case 3://SJF
+						mode = 2;
+						break;
+					case 4://SRTF
+						mode = 3;
+						break;
+					case 5://Priority
+						mode = 4;
+						break;
+					case 6://RR
+						mode = 5;
+						break;
+					case 7://exit
+						exit = 1;
+						return 0;
+						break;
+					default:
+						break;
+					}
+					if (Read_check != 1) {
+						gotoxy(1, 10);
+						printf("Doesn't Read data from txt,Read txt frist\n");
+					}
+					else {
+						Schedular_fun(&proc, mode);
+					}
+					break;
+				case 72://up
+					if (row > 3) {
+						gotoxy(1, row);
+						printf(" ");
+						row--;
+						gotoxy(1, row);
+						printf("*");
+					}
+					break;
+				case 80://down
+					if (row < 10) {
+						gotoxy(1, row);
+						printf(" ");
+						row++;
+						gotoxy(1, row);
+						printf("*");
+					}
+					break;
+				default://else
+					break;
+				}
+			}
+		}
+		if (exit == 1) {
+			return 0;
+		}
+	}
 	
-	printf("Start\n");
-	proc = FileIO_fun(&proc);
-	if (row_count == -1 || proc == 0) {
-		printf("Error\n");
-		return -1;
-	}
-	for (int i = 0; i < 5; i++) {
-		printf("num : %d\n", proc[i].num);
-	}
-	Schedular_fun(&proc, 3);
 	return 0;
+}
+void gotoxy(int x, int y) {
+	COORD pos = { x - 1,y - 1 };
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
 Process *Proc_fun(Process **proc, int row) {
 	(*proc) = (Process*)realloc(*proc, (row+1)*sizeof(Process));
@@ -220,7 +306,7 @@ Process* SRTF_fun(Process **proc) {
 				RP = j;//stop process for changing
 				if ((*proc)[RP].stat == 0) {
 					wp--;
-					(*proc)[RP].stat == 1;//ruunning
+					(*proc)[RP].stat = 1;//ruunning
 					(*proc)[RP].wait = time - (*proc)[RP].save_point;
 				}
 				else {
@@ -280,7 +366,7 @@ Process* Priority_fun(Process **proc) {
 				RP = j;//stop process for changing
 				if ((*proc)[RP].stat == 0) {
 					wp--;
-					(*proc)[RP].stat == 1;//ruunning
+					(*proc)[RP].stat = 1;//ruunning
 					(*proc)[RP].wait = time - (*proc)[RP].save_point;
 				}
 				else {
@@ -359,15 +445,7 @@ int B_Block(Process **proc, int next) {
 	}
 	return select;
 }
-Process* Priority_fun(Process **proc) {
-	int i = 0, j = 0, tmp_num = 0, tmp_arr = 0;
-	int *arr = 0, *arr_time;
-	arr = (int*)malloc(sizeof(int)*row_count);
-	arr_time = (int*)malloc(sizeof(int)*row_count);
 
-
-	return 0;
-}
 Process* RoundRobin_fun(Process **proc) {
 	int Q_size = 0, i =0, j=0,time = 0, finish_count = row_count;
 	printf("Write Quantum size : ");
