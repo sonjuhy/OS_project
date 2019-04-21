@@ -16,6 +16,8 @@ struct Process {
 };
 void Schedular_fun(Process **proc, int mode);
 Process *Proc_refresh(Process **proc, int row);
+Process *Proc_replace(Process** proc);
+Process* Proc_fun(Process **proc, int row);
 
 Process* FileIO_fun(Process **proc);
 
@@ -23,9 +25,8 @@ Process* Arrive_fun(Process **proc);//for FCFS
 Process* Burst_fun(Process **proc);//for SJF
 Process* SRTF_fun(Process **proc);//for SRTF
 Process* Priority_fun(Process **process);//for Priority
+Process* RoundRobin_fun(Process **proc);//for RoundRobin
 
-Process *Proc_replace(Process** proc);
-Process* Proc_fun(Process **proc, int row);
 int A_Block(Process **proc, int j);
 int B_Block(Process **proc, int j);
 int row_count = 0;
@@ -465,7 +466,6 @@ int B_Block(Process **proc, int next) {
 	}
 	return select;
 }
-
 Process* RoundRobin_fun(Process **proc) {
 	int Q_size = 0, i =0, j=0,time = 0, finish_count = row_count;
 	printf("Write Quantum size : ");
