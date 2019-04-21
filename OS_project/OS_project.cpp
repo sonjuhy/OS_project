@@ -1,8 +1,6 @@
 ﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <conio.h>
-#include <Windows.h>
 #include <math.h>
 
 struct Process {
@@ -14,11 +12,10 @@ struct Process {
 	int save_point;
 	int wait;
 	int TAT;//Turnaroundtime
-	int stat;//0 : wait, 1 : runnung, 2 : finish
+	int stat;//0 : wait, 1 : runnung, 2 : finish, 3: stop
 };
-void gotoxy(int x, int y);
-
 void Schedular_fun(Process **proc, int mode);
+Process *Proc_refresh(Process **proc, int row);
 
 Process* FileIO_fun(Process **proc);
 
@@ -27,6 +24,7 @@ Process* Burst_fun(Process **proc);//for SJF
 Process* SRTF_fun(Process **proc);//for SRTF
 Process* Priority_fun(Process **process);//for Priority
 
+Process *Proc_replace(Process** proc);
 Process* Proc_fun(Process **proc, int row);
 int A_Block(Process **proc, int j);
 int B_Block(Process **proc, int j);
@@ -35,106 +33,108 @@ int row_count = 0;
 int main()
 {
 	struct Process *proc = 0;//process# , CPU_time, Arrival_time, Priority
-	int mode = 0, key = 0, row = 3, Read_check = 0, exit = 0;
+	Process tmp_proc = { 0, };
+	int mode = 0, key = 0, row = 0, Read_check = 0;
 
 	proc = (Process*)malloc(sizeof(struct Process));
+	proc = Proc_refresh(&proc, 0);
 
 	printf("Main Menu\n");
 	printf("---------\n");
-	printf("  Read processes from proc.txt\n");
-	printf("  Generate random processes\n");
-	printf("  First come first Serve (FCFS)\n");
-	printf("  Shortest Job First (SJF)\n");
-	printf("  Shortest Remaining time First (SRTF)\n");
-	printf("  Priority\n");
-	printf("  Round Robin (RR)\n");
-	printf("  Exit\n");
-	gotoxy(1, 3);
-	printf("*");
+	printf("1.  Read processes from proc.txt\n");
+	printf("2.  Generate random processes\n");
+	printf("3.  First come first Serve (FCFS)\n");
+	printf("4.  Shortest Job First (SJF)\n");
+	printf("5.  Shortest Remaining time First (SRTF)\n");
+	printf("6.  Priority\n");
+	printf("7.  Round Robin (RR)\n");
+	printf("8.  Exit\n");
+
 	while (1) {
-		if (_kbhit()) {
-			key = _getch();
-			if (key == 224 || key == 0 || key == 13) {
-				key = _getch();
-				switch (key) {
-				case 13://enter
-					switch (row - 1) {
-					case 0://Read txt
-						proc = FileIO_fun(&proc);
-						if (row_count == -1 || proc == 0) {
-							printf("Error\n");
-							return -1;
-						}
-						Read_check = 1;
-						break;
-					case 1://Generate
-						break;
-					case 2://FCFS
-						mode = 1;
-						break;
-					case 3://SJF
-						mode = 2;
-						break;
-					case 4://SRTF
-						mode = 3;
-						break;
-					case 5://Priority
-						mode = 4;
-						break;
-					case 6://RR
-						mode = 5;
-						break;
-					case 7://exit
-						exit = 1;
-						return 0;
-						break;
-					default:
-						break;
-					}
-					if (Read_check != 1) {
-						gotoxy(1, 10);
-						printf("Doesn't Read data from txt,Read txt frist\n");
-					}
-					else {
-						Schedular_fun(&proc, mode);
-					}
-					break;
-				case 72://up
-					if (row > 3) {
-						gotoxy(1, row);
-						printf(" ");
-						row--;
-						gotoxy(1, row);
-						printf("*");
-					}
-					break;
-				case 80://down
-					if (row < 10) {
-						gotoxy(1, row);
-						printf(" ");
-						row++;
-						gotoxy(1, row);
-						printf("*");
-					}
-					break;
-				default://else
-					break;
-				}
+		printf("Choose function : ");
+		scanf("%d", &row);
+		switch (row - 1) {
+		case 0://Read txt
+			proc = FileIO_fun(&proc);
+			if (row_count == -1 || proc == 0) {
+				printf("Error\n");
+				return -1;
 			}
-		}
-		if (exit == 1) {
+			Read_check = 1;
+			break;
+		case 1://Generate
+			break;
+		case 2://FCFS
+			mode = 1;
+			break;
+		case 3://SJF
+			mode = 2;
+			break;
+		case 4://SRTF
+			mode = 3;
+			break;
+		case 5://Priority
+			mode = 4;
+			break;
+		case 6://RR
+			mode = 5;
+			break;
+		case 7://exit
 			return 0;
+			break;
+		default:
+			printf("Wrong select\n");
+			break;
+		}
+		if (Read_check != 1) {
+			printf("Doesn't Read data from txt,Read txt frist\n");
+		}
+		else if(row != 1) {
+			Schedular_fun(&proc, mode);
+			proc = Proc_replace(&proc);
 		}
 	}
 	
 	return 0;
 }
-void gotoxy(int x, int y) {
-	COORD pos = { x - 1,y - 1 };
-	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
+Process *Proc_replace(Process** proc) {
+	Process tmp_p = { 0, };
+	int i = 0, j = 0;
+	for (i = 0; i < row_count; i++) {
+		for (j = i; j < row_count; j++) {
+			if ((*proc)[i].num > (*proc)[j].num) {
+				tmp_p = (*proc)[j];
+				(*proc)[j] = (*proc)[i];
+				(*proc)[i] = tmp_p;
+			}
+		}
+	}
+	for (i = 0; i < row_count; i++) {
+		(*proc)[i].remaind = (*proc)[i].BrustTime;
+		(*proc)[i].save_point = 0;
+		(*proc)[i].stat = 0;
+		(*proc)[i].TAT = 0;
+		(*proc)[i].wait = 0;
+	}
+
+	return *proc;
+}
+Process *Proc_refresh(Process **proc, int row) {
+	(*proc)[row].ArriveTime = 0;
+	(*proc)[row].BrustTime = 0;
+	(*proc)[row].num = 0;
+	(*proc)[row].Priority = 0;
+	(*proc)[row].remaind = 0;
+	(*proc)[row].save_point = 0;
+	(*proc)[row].stat = 0;
+	(*proc)[row].TAT = 0;
+	(*proc)[row].wait = 0;
+
+	return *proc;
 }
 Process *Proc_fun(Process **proc, int row) {
 	(*proc) = (Process*)realloc(*proc, (row+1)*sizeof(Process));
+	(*proc) = Proc_refresh(&(*proc), row);
 	return *proc;
 }
 Process* FileIO_fun(Process **proc) {
@@ -156,7 +156,7 @@ Process* FileIO_fun(Process **proc) {
 	printf("--------   --------   ------------   --------\n");
 	while (fgets(inp, buf_size, file)) {//Read line
 		for (i = 0; i < strlen(inp); i++) {
-			if (inp[i] != ' ') {//data is exist
+			if (inp[i] != ' ' && inp[i] != '\0' && inp[i] != '\n') {//data is exist
 				switch (count) {
 				case 0:
 					(*proc)[place].num = atoi(&inp[i]);
@@ -185,16 +185,18 @@ Process* FileIO_fun(Process **proc) {
 						}
 						break;
 					}
-					else if (inp[i + 1] == '\0') {
+					else if (count > 1 && inp[i + 1] == '\0') {
 						*proc = Proc_fun(&(*proc), place + 1);
+						place++;
 						break;
 					}
 				}
 			}
 		}
-		printf("  <%d>         <%d>         <%d>          <%d>\n", (*proc)[place].num, (*proc)[place].BrustTime, (*proc)[place].ArriveTime, (*proc)[place].Priority);
-		place++;
 		count = 0;
+	}
+	for (i = 0; i < place; i++) {
+		printf("  <%d>         <%d>         <%d>          <%d>\n", (*proc)[i].num, (*proc)[i].BrustTime, (*proc)[i].ArriveTime, (*proc)[i].Priority);
 	}
 	row_count = place;
 	free(inp);
@@ -228,9 +230,6 @@ Process* Arrive_fun(Process **proc) {
 			}
 		}
 	}
-	for (i = 0; i < row_count; i++) {
-		printf("arrive_fun num : %d arrive time : %d\n", (*proc)[i].num, (*proc)[i].ArriveTime);
-	}
 	return *proc;
 }
 Process* Burst_fun(Process **proc) {
@@ -263,6 +262,7 @@ Process* Burst_fun(Process **proc) {
 }
 Process* SRTF_fun(Process **proc) {
 	int i = 0, j = 0, RP = 0, time = 0, wp = 0, finish_pro = row_count, last_finish = 0;
+	Process tmp_proc = { 0, };
 	(*proc) = Arrive_fun(&(*proc));
 	while (1) {
 		if ((*proc)[RP].remaind == 0) {
@@ -277,41 +277,48 @@ Process* SRTF_fun(Process **proc) {
 			break;
 		}
 		if (RP == -1) {
-			if (finish_pro != 0) {
+			if (finish_pro == 1) {
+				RP = j;
+				(*proc)[RP].remaind--;
+			}
+			else if (finish_pro > 1) {
 				j = A_Block(&(*proc), last_finish + 1);
 				RP = j;
-			}
-			if (RP == -1) {
-				return 0;
-			}
+				if (RP == -1) {
+					return 0;
+				}
+			}			
 			else if((*proc)[j].ArriveTime <= time){
 				(*proc)[RP].wait = time - (*proc)[RP].ArriveTime;
 				(*proc)[RP].remaind--;
 			}
+			(*proc)[RP].stat = 1;//running
 		}
 		else if (!(RP == 0 && (*proc)[RP].ArriveTime > time)) {
 			if (finish_pro > 1) {
 				j = A_Block(&(*proc), RP + 1);
-			}
-			if (j == -1) {
-				return 0;
-			}
-			else {
-				(*proc)[RP].wait = time - (*proc)[RP].ArriveTime;
+				if (j == -1) {
+					return 0;
+				}
 			}
 			if ((*proc)[RP].remaind > (*proc)[j].remaind) {
 				wp++;
-				(*proc)[RP].stat = 0;//stop(wait)
+				(*proc)[RP].stat = 3;//stop
 				(*proc)[RP].save_point = time;
-				RP = j;//stop process for changing
-				if ((*proc)[RP].stat == 0) {
+
+				tmp_proc = (*proc)[j];
+				(*proc)[j] = (*proc)[RP];
+				(*proc)[RP] = tmp_proc;//stop process for changing
+				if ((*proc)[RP].stat == 3) {
 					wp--;
 					(*proc)[RP].stat = 1;//ruunning
 					(*proc)[RP].wait = time - (*proc)[RP].save_point;
 				}
 				else {
+					(*proc)[RP].stat = 1;//running
 					(*proc)[RP].wait = time - (*proc)[RP].ArriveTime;
 				}
+				(*proc)[RP].remaind--;
 			}
 			else {
 				(*proc)[RP].remaind--;
@@ -323,6 +330,8 @@ Process* SRTF_fun(Process **proc) {
 }
 Process* Priority_fun(Process **proc) {
 	int i = 0, j = 0, RP = 0, time = 0, wp = 0, finish_pro = row_count, last_finish = 0;
+	Process tmp_proc = { 0, };
+
 	(*proc) = Arrive_fun(&(*proc));
 	while (1) {
 		if ((*proc)[RP].remaind == 0) {
@@ -337,41 +346,48 @@ Process* Priority_fun(Process **proc) {
 			break;
 		}
 		if (RP == -1) {
-			if (finish_pro != 0) {
+			if (finish_pro == 1) {
+				RP = j;
+				(*proc)[RP].remaind--;
+			}
+			else if (finish_pro > 1) {
 				j = B_Block(&(*proc), last_finish + 1);
 				RP = j;
-			}
-			if (RP == -1) {
-				return 0;
+				if (RP == -1) {
+					return 0;
+				}
 			}
 			else if ((*proc)[j].ArriveTime <= time) {
 				(*proc)[RP].wait = time - (*proc)[RP].ArriveTime;
 				(*proc)[RP].remaind--;
 			}
+			(*proc)[RP].stat = 1;//running
 		}
 		else if (!(RP == 0 && (*proc)[RP].ArriveTime > time)) {
 			if (finish_pro > 1) {
 				j = B_Block(&(*proc), RP + 1);
-			}
-			if (j == -1) {
-				return 0;
-			}
-			else {
-				(*proc)[RP].wait = time - (*proc)[RP].ArriveTime;
+				if (j == -1) {
+					return 0;
+				}
 			}
 			if ((*proc)[RP].Priority > (*proc)[j].Priority) {
 				wp++;
-				(*proc)[RP].stat = 0;//stop(wait)
+				(*proc)[RP].stat = 3;//stop(wait)
 				(*proc)[RP].save_point = time;
-				RP = j;//stop process for changing
-				if ((*proc)[RP].stat == 0) {
+
+				tmp_proc = (*proc)[j];
+				(*proc)[j] = (*proc)[RP];
+				(*proc)[RP] = tmp_proc;//stop process for changing
+				if ((*proc)[RP].stat == 3) {
 					wp--;
 					(*proc)[RP].stat = 1;//ruunning
 					(*proc)[RP].wait = time - (*proc)[RP].save_point;
 				}
 				else {
+					(*proc)[RP].stat = 1;//running
 					(*proc)[RP].wait = time - (*proc)[RP].ArriveTime;
 				}
+				(*proc)[RP].remaind--;
 			}
 			else {
 				(*proc)[RP].remaind--;
@@ -384,20 +400,24 @@ Process* Priority_fun(Process **proc) {
 int A_Block(Process **proc, int next) {
 	int i = 0, select = next;
 	if (next >= row_count) {
-		return -1;
+		for (i = 0; i < row_count; i++) {
+			if ((*proc)[i].stat == 3 || (*proc)[i].stat == 0) {
+				next = i;
+			}
+		}
 	}
 	for (i = 0; i < row_count; i++) {
-		if ((*proc)[i].stat != 2 && (*proc)[i].wait == 0) {
-			if ((*proc)[i].remaind < (*proc)[next].BrustTime) {
+		if ((*proc)[i].stat != 2 && (*proc)[i].stat == 1) {
+			if ((*proc)[i].remaind < (*proc)[select].BrustTime) {
 				select = next;
 			}
-			else if((*proc)[i].remaind > (*proc)[next].BrustTime){
+			else if((*proc)[i].remaind > (*proc)[select].BrustTime){
 				continue;
 			}
 			else {
-				if ((*proc)[i].Priority <= (*proc)[next].Priority) {
-					if ((*proc)[i].Priority == (*proc)[next].Priority) {
-						if ((*proc)[i].num < (*proc)[next].num) {//i select
+				if ((*proc)[i].Priority <= (*proc)[select].Priority) {
+					if ((*proc)[i].Priority == (*proc)[select].Priority) {
+						if ((*proc)[i].num < (*proc)[select].num) {//i select
 							select = i;
 						}
 						else { //next select
@@ -416,25 +436,25 @@ int A_Block(Process **proc, int next) {
 int B_Block(Process **proc, int next) {
 	int i = 0, select = next;
 	if (next >= row_count) {
-		return -1;
+		for (i = 0; i < row_count; i++) {
+			if ((*proc)[i].stat == 3 || (*proc)[i].stat == 0) {
+				next = i;
+			}
+		}
 	}
+	select = next;
 	for (i = 0; i < row_count; i++) {
-		if ((*proc)[i].stat != 2 && (*proc)[i].wait == 0) {
-			if ((*proc)[i].Priority <= (*proc)[next].Priority) {
-				if ((*proc)[i].Priority == (*proc)[next].Priority) {
-					if ((*proc)[i].remaind < (*proc)[next].BrustTime) {
+		if ((*proc)[i].stat != 2 && (*proc)[i].stat != 1) {
+			if ((*proc)[i].Priority <= (*proc)[select].Priority) {	
+				if ((*proc)[i].Priority == (*proc)[select].Priority) {
+					if ((*proc)[i].remaind < (*proc)[select].BrustTime) {
 						select = next;
 					}
-					else if ((*proc)[i].remaind > (*proc)[next].BrustTime) {
+					else if ((*proc)[i].remaind > (*proc)[select].BrustTime) {
 						continue;
 					}
-					else {
-						if ((*proc)[i].num < (*proc)[next].num) {//i select
-							select = i;
-						}
-						else { //next select
-							select = next;
-						}
+					else if ((*proc)[i].num < (*proc)[select].num) {//i select
+						select = i;
 					}
 				}
 			}
@@ -453,27 +473,33 @@ Process* RoundRobin_fun(Process **proc) {
 	(*proc) = Arrive_fun(&(*proc));
 
 	while (1) {
-		if (!((*proc)[j].remaind == (*proc)[j].BrustTime && (*proc)[j].num == 0)) {
-			(*proc)[j].wait = time - (*proc)[j].save_point;
-		}
-		for (i = 0; i < Q_size; i++) {
-			(*proc)[j].remaind--;
-			time++;
-			if ((*proc)[j].remaind == 0) {
-				(*proc)[j].stat = 2;//finish
-				finish_count--;
+		if ((*proc)[j].ArriveTime <= time) {
+			if (!((*proc)[j].remaind == (*proc)[j].BrustTime && (*proc)[j].num == 0)) {
+				(*proc)[j].wait += time - (*proc)[j].save_point;
+			}
+			for (i = 0; i < Q_size; i++) {
+				(*proc)[j].remaind--;
+				time++;
+				if ((*proc)[j].remaind == 0) {
+					(*proc)[j].stat = 2;//finish
+					(*proc)[j].TAT = time - (*proc)[j].ArriveTime;
+					finish_count--;
+					break;
+				}
+			}
+			if ((*proc)[j].stat != 2) {
+				(*proc)[j].save_point = time;
+				(*proc)[j].stat = 3;//stop
+			}
+			j++;
+			if (j >= row_count) {
+				j = 0;
+			}
+			if (finish_count == 0) {
 				break;
 			}
 		}
-		if ((*proc)[j].stat != 2) {
-			(*proc)[j].save_point = time;
-			(*proc)[j].stat = 0;//wait
-		}
-		
-		j++;
-		if (j >= row_count) {
-			j = 0;
-		}
+		time++;
 	}
 
 	return *proc;
@@ -481,7 +507,6 @@ Process* RoundRobin_fun(Process **proc) {
 void Schedular_fun(Process **proc, int mode) {
 	int i = 0, max = 0, CPU_time = 0, waiting_time = 0;
 	float turnaround_time = 0.0;
-	int *arr = 0;//start num
 
 	switch (mode) {
 	case 1://FCFS
@@ -497,6 +522,7 @@ void Schedular_fun(Process **proc, int mode) {
 		(*proc) = Priority_fun(&(*proc));
 		break;
 	case 5://RR
+		(*proc) = RoundRobin_fun(&(*proc));
 		break;
 	}
 	printf("\n");
@@ -525,6 +551,5 @@ void Schedular_fun(Process **proc, int mode) {
 		printf("Waiting time : %d\n", waiting_time);
 		printf("Average Turnaround time : %f\n", turnaround_time / (float)row_count);
 	}
-	free(arr);
 }
 
